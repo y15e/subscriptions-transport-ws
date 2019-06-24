@@ -460,6 +460,8 @@ export class SubscriptionServer {
     });
 
     if (parsedMessage && connectionContext.socket.readyState === WebSocket.OPEN) {
+      console.log('[server.ts] sendMessage');
+      console.dir(parsedMessage);
       connectionContext.socket.send(JSON.stringify(parsedMessage));
     }
   }
