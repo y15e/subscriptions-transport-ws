@@ -115,6 +115,7 @@ export class SubscriptionServer {
   }
 
   constructor(options: ServerOptions, socketOptionsOrServer: WebSocket.ServerOptions | WebSocket.Server) {
+    
     const {
       onOperation, onOperationComplete, onConnect, onDisconnect, keepAlive,
     } = options;
@@ -135,21 +136,8 @@ export class SubscriptionServer {
       this.wsServer = new WebSocket.Server(socketOptionsOrServer || {});
     }
 
-    const connectionHandler = ((socket: WebSocket, request: IncomingMessage) => {
-      // Add `upgradeReq` to the socket object to support old API, without creating a memory leak
-      // See: https://github.com/websockets/ws/pull/1099
-      (socket as any).upgradeReq = request;
-      // NOTE: the old GRAPHQL_SUBSCRIPTIONS protocol support should be removed in the future
-      if (socket.protocol === undefined ||
-        (socket.protocol.indexOf(GRAPHQL_WS) === -1 && socket.protocol.indexOf(GRAPHQL_SUBSCRIPTIONS) === -1)) {
-        // Close the connection with an error code, ws v2 ensures that the
-        // connection is cleaned up even when the closing handshake fails.
-        // 1002: protocol error
-        socket.close(1002);
-
-        return;
-      }
-
+    const connectionHandler = ((socket: any, request: IncomingMessage) => {
+      
       const connectionContext: ConnectionContext = Object.create(null);
       connectionContext.initPromise = Promise.resolve(true);
       connectionContext.isLegacy = false;
@@ -157,33 +145,11 @@ export class SubscriptionServer {
       connectionContext.request = request;
       connectionContext.operations = {};
 
-      const connectionClosedHandler = (error: any) => {
-        if (error) {
-          this.sendError(
-            connectionContext,
-            '',
-            { message: error.message ? error.message : error },
-            MessageTypes.GQL_CONNECTION_ERROR,
-          );
-
-          setTimeout(() => {
-            // 1011 is an unexpected condition prevented the request from being fulfilled
-            connectionContext.socket.close(1011);
-          }, 10);
-        }
-        this.onClose(connectionContext);
-
-        if (this.onDisconnect) {
-          this.onDisconnect(socket, connectionContext);
-        }
-      };
-
-      socket.on('error', connectionClosedHandler);
-      socket.on('close', connectionClosedHandler);
       socket.on('message', this.onMessage(connectionContext));
     });
 
     this.wsServer.on('connection', connectionHandler);
+    
     this.closeHandler = () => {
       this.wsServer.removeListener('connection', connectionHandler);
       this.wsServer.close();
@@ -231,9 +197,11 @@ export class SubscriptionServer {
     });
   }
 
-  private onMessage(connectionContext: ConnectionContext) {
+  public onMessage(connectionContext: ConnectionContext) {
     return (message: any) => {
+      
       let parsedMessage: OperationMessage;
+      
       try {
         parsedMessage = parseLegacyProtocolMessage(connectionContext, JSON.parse(message));
       } catch (e) {
@@ -241,6 +209,9 @@ export class SubscriptionServer {
         return;
       }
 
+      console.log("[parsedMessage]")
+      console.dir(parsedMessage)
+      
       const opId = parsedMessage.id;
       switch (parsedMessage.type) {
         case MessageTypes.GQL_CONNECTION_INIT:
@@ -303,7 +274,9 @@ export class SubscriptionServer {
           break;
 
         case MessageTypes.GQL_START:
+          
           connectionContext.initPromise.then((initResult) => {
+            
             // if we already have a subscription with this id, unsubscribe from it first
             if (connectionContext.operations && connectionContext.operations[opId]) {
               this.unsubscribe(connectionContext, opId);
@@ -459,9 +432,7 @@ export class SubscriptionServer {
       payload,
     });
 
-    if (parsedMessage && connectionContext.socket.readyState === WebSocket.OPEN) {
-      console.log('[server.ts] sendMessage');
-      console.dir(parsedMessage);
+    if (parsedMessage) {
       connectionContext.socket.send(JSON.stringify(parsedMessage));
     }
   }
