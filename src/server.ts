@@ -426,6 +426,7 @@ export class SubscriptionServer {
   }
 
   private sendMessage(connectionContext: ConnectionContext, opId: string, type: string, payload: any): void {
+    
     const parsedMessage = parseLegacyProtocolMessage(connectionContext, {
       type,
       id: opId,
@@ -433,6 +434,8 @@ export class SubscriptionServer {
     });
 
     if (parsedMessage) {
+      console.log('[connectionContext]');
+      console.dir(connectionContext);
       connectionContext.socket.send(JSON.stringify(parsedMessage));
     }
   }
