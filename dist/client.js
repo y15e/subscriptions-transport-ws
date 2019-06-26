@@ -427,7 +427,7 @@ var SubscriptionClient = (function () {
     };
     SubscriptionClient.prototype.connect = function () {
         var _this = this;
-        this.client = new this.wsImpl(this.url, this.wsProtocols);
+        this.client = new this.wsImpl(this.url);
         this.checkMaxConnectTimeout();
         this.client.onopen = function () { return __awaiter(_this, void 0, void 0, function () {
             var connectionParams, error_1;
